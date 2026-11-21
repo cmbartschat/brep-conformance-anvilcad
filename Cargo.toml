@@ -1,0 +1,14 @@
+[package]
+name = "anvilcad-adapter"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "The anvil-brep adapter for the B-rep protocol the conformance suite drives"
+publish = false
+
+[dependencies]
+brep-protocol = "2"
+# AnvilCAD's exact kernel and its STEP writer, at release 0.1.2. Neither is on crates.io.
+anvil-brep = { git = "https://github.com/swperb/anvilcad", rev = "946219a4b617e6f304840fc256ba1f7e4d32f8f4" }
+anvil-step = { git = "https://github.com/swperb/anvilcad", rev = "946219a4b617e6f304840fc256ba1f7e4d32f8f4" }
+glam = "0.34"
