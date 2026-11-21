@@ -32,10 +32,13 @@ per chord, and takes the volume, area and centroid of that mesh. The `configurat
 says so.
 
 The suite's own scope is kernels that measure exactly, at 1e-7 mm. A measure taken from a mesh is
-off by roughly the chord's square over the radius on every curved face. So anvil-brep's curved
-results fail at 1e-7 mm where the geometry is right, and the tier a case holds at (1e-6, 1e-5 or
-1e-3) is the better guide. The checks that do not measure, such as the checker (B1), the classifier
-against the suite's sample (B9, B15) and the refusals (B18), are read as they stand. This is the
+off by roughly the chord's square over the radius on every curved face: about 5e-5 of the area at
+1° per chord. The suite's volume bound loosens with each tier, but its area bound is a relative
+1e-6 at every tier. So every solid with a curved face fails its area check at every tier, even
+where the geometry is right. Of the suite 2.0.0 run on anvil-brep 0.1.2, 384 of 3617 cases pass at
+1e-7 and 1349 fail, and 1138 of those fail on a measure alone. The checks that do not measure, such
+as the checker (B1), the classifier against the suite's sample (B9, B15) and the refusals (B18),
+are read as they stand: 211 cases fail one of those. This is the
 one place the adapter is not one call per function. It is the open question in the issue that
 proposes this adapter for the registry. Should anvil-brep gain an exact measure, the adapter will
 call it.
