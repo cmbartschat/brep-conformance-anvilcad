@@ -433,16 +433,14 @@ impl brep_protocol::Kernel for Anvil {
         d1: f64,
         d2: f64,
     ) -> Result<Solid, Refusal> {
-        // anvil-brep sizes an uneven chamfer by its setback along one face and the angle it
-        // leaves that face at, which the protocol gives as d2 = d1·tan(angle).
         let b = body(s)?;
         let along = faces_at(b, &[face])?[0];
         self.blend(
             s,
             &[edge],
-            Blend::ChamferAngle {
+            Blend::ChamferDistances {
                 distance: d1,
-                angle: (d2 / d1).atan(),
+                other: d2,
                 along,
             },
         )

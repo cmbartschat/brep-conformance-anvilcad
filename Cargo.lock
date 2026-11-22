@@ -11,7 +11,7 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 [[package]]
 name = "anvil-brep"
 version = "0.1.2"
-source = "git+https://github.com/swperb/anvilcad?rev=946219a4b617e6f304840fc256ba1f7e4d32f8f4#946219a4b617e6f304840fc256ba1f7e4d32f8f4"
+source = "git+https://github.com/swperb/anvilcad?rev=44a2dd5d4a4ffbfb86b4009cb38b4732cb8ef389#44a2dd5d4a4ffbfb86b4009cb38b4732cb8ef389"
 dependencies = [
  "glam",
  "serde",
@@ -22,7 +22,7 @@ dependencies = [
 [[package]]
 name = "anvil-step"
 version = "0.1.2"
-source = "git+https://github.com/swperb/anvilcad?rev=946219a4b617e6f304840fc256ba1f7e4d32f8f4#946219a4b617e6f304840fc256ba1f7e4d32f8f4"
+source = "git+https://github.com/swperb/anvilcad?rev=44a2dd5d4a4ffbfb86b4009cb38b4732cb8ef389#44a2dd5d4a4ffbfb86b4009cb38b4732cb8ef389"
 dependencies = [
  "anvil-brep",
  "glam",

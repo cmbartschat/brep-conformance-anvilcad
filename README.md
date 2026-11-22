@@ -32,16 +32,15 @@ per chord, and takes the volume, area and centroid of that mesh. The `configurat
 says so.
 
 The suite's own scope is kernels that measure exactly, at 1e-7 mm. A measure taken from a mesh is
-off by roughly the chord's square over the radius on every curved face: about 5e-5 of the area at
-1° per chord. The suite's volume bound loosens with each tier, but its area bound is a relative
-1e-6 at every tier. So every solid with a curved face fails its area check at every tier, even
-where the geometry is right. Of the suite 2.0.0 run on anvil-brep 0.1.2, 384 of 3617 cases pass at
-1e-7 and 1349 fail, and 1138 of those fail on a measure alone. The checks that do not measure, such
-as the checker (B1), the classifier against the suite's sample (B9, B15) and the refusals (B18),
-are read as they stand: 211 cases fail one of those. This is the
-one place the adapter is not one call per function. It is the open question in the issue that
-proposes this adapter for the registry. Should anvil-brep gain an exact measure, the adapter will
-call it.
+off by roughly the chord's square over the radius on every curved face: about 5e-5 of the area at 1°
+per chord. The suite's volume bound loosens with each tier, but its area bound is a relative 1e-6 at
+every tier. So every solid with a curved face fails its area check at every tier, even where the
+geometry is right. Of the suite 2.0.0 run on anvil-brep at the pinned commit, 415 of 3617 cases pass
+at 1e-7 and 1418 fail. The checks that do not measure, such as the checker (B1), the classifier
+against the suite's sample (B9, B15) and the refusals (B18), are read as they stand: 178 cases fail
+one of those, and the other 1240 fail on a measure alone. This is the one place the adapter is not
+one call per function. It is the open question in the issue that proposes this adapter for the
+registry. Should anvil-brep gain an exact measure, the adapter will call it.
 
 ## Overview
 
@@ -59,9 +58,11 @@ rest as unsupported:
   is the empty solid.
 - **Blends.** `blend::blend_chain` on the named edges, all in one call, each found with
   `blend::edge_near` at the protocol's `10·ε`. Fillets and equal chamfers are its `Fillet` and
-  `Chamfer`. A chamfer by two distances is its `ChamferAngle`: a setback `d1` along the named face,
-  leaving it at `atan(d2/d1)`. Several radii or distances at once are unsupported, since a call
-  takes one.
+  `Chamfer`. A chamfer by two distances is its `ChamferDistances`: `d1` along the named face and
+  `d2` along the other, each a chord square to the edge. Several radii or distances at once are
+  unsupported, since a call takes one. anvil-brep closes a corner where every edge is rounded with
+  a patch of the ball only in further calls (`corner::ball_corners` and `corner::close_corner`,
+  which AnvilCAD's fillet feature makes), so the adapter leaves its corners to the rounds.
 - **Changing a solid.** `offset::offset_faces` with the named faces' distance and 0 for the others,
   `shell::shell` inward, and `draft::draft_faces` about the neutral plane. Faces are found with
   `boolean::face_contains`; a point on several faces is unsupported.
@@ -93,8 +94,8 @@ The adapter declares it and changes nothing.
 ## Setup
 
 The Rust toolchain [`rust-toolchain.toml`](rust-toolchain.toml) pins. Building fetches anvil-brep
-and anvil-step from AnvilCAD's repository at release 0.1.2, the commit
-[`Cargo.toml`](Cargo.toml) pins.
+and anvil-step from AnvilCAD's repository at the commit [`Cargo.toml`](Cargo.toml) pins, after
+release 0.1.2.
 
 ## Usage
 
