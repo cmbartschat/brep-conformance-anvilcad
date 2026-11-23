@@ -56,7 +56,9 @@ rest as unsupported:
 - **Changing a solid.** `offset::offset_faces` with the named faces' distance and 0 for the others,
   `shell::shell` inward, and `draft::draft_faces` about the neutral plane. Faces are found with
   `boolean::face_contains`; a point on several faces is unsupported.
-- **Moving.** A rigid motion with `Solid::transformed`.
+- **Moving.** A rigid motion with `Solid::transformed`, and a reflection in a plane with
+  `mirror::mirrored`: a transform that is only a reflection, with no turn or slide along the
+  plane, gives that call its plane.
 - **Queries.** The checker is `check::validate`. The classifier is `boolean::contains_point`, which
   counts the boundary in and has no answer of its own for a point on it. The mesh is
   `tess::tessellate` at the asked chord. STEP is `anvil_step::export::write`, AnvilCAD's AP214
@@ -72,8 +74,8 @@ Listed as unsupported, since anvil-brep 0.2.0 has no one call of the protocol's 
   and blends of several sizes.
 - Rounded offsets (`offset_faces` keeps the topology and its edges sharp), face deletes, moves and
   thickens.
-- A mirror, a scale, a stretch or a shear: `mirror::mirrored` and `scale::scaled` are calls of their
-  own, and a motion that turns and mirrors or scales would be two.
+- A scale, a stretch or a shear, and a reflection combined with a turn or a slide: `scale::scaled`
+  is a call of its own, and a motion that combines a reflection with anything else would be two.
 - Inertia, distance, interference, Betti numbers, sections, projections, splits, rays, normals,
   curvatures, nearest points, bounding boxes (`Solid::bounds` pads curved faces), displays, sewing
   and reading STEP.

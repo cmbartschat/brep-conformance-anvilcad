@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 brep-protocol = "2"
-# AnvilCAD's exact kernel and its STEP writer, at release 0.1.2. Neither is on crates.io.
+# AnvilCAD's exact kernel and its STEP writer, at release 0.2.0. Neither is on crates.io.
 anvil-brep = { git = "https://github.com/swperb/anvilcad", rev = "1b82ac4bdb93a1b04c8d14020507941b2b6a4435" }
 anvil-step = { git = "https://github.com/swperb/anvilcad", rev = "1b82ac4bdb93a1b04c8d14020507941b2b6a4435" }
 glam = "0.34"

@@ -10,7 +10,7 @@ use anvil_brep::loft::{Section, loft_ruled};
 use anvil_brep::profile::{Loop2, Region, Segment, build_regions};
 use anvil_brep::sweep::PathSegment;
 use anvil_brep::tess::{TessParams, tessellate};
-use anvil_brep::{Frame, KernelError, check, mass, tol};
+use anvil_brep::{Frame, KernelError, check, mass, mirror, tol};
 use brep_protocol::{Mesh, Refusal, model, model::Primitive, profile};
 use glam::{DVec2, DVec3};
 
@@ -299,6 +299,41 @@ fn one_size(sizes: &[f64], what: &str) -> Result<f64, Refusal> {
     }
 }
 
+/// The plane `m` reflects in, as a point on it and its unit normal, if `m` (an orthonormal
+/// matrix that flips handedness, and a translation) is a reflection in one plane and nothing
+/// more: its linear part is `I - 2nnᵀ`, and its translation `2dn` is along `n`, the plane being
+/// `p·n = d`. A reflection with a turn, or with a slide along the plane, is not one.
+fn reflection(m: [[f64; 4]; 3]) -> Option<(DVec3, DVec3)> {
+    let row = |i: usize| DVec3::new(m[i][0], m[i][1], m[i][2]);
+    let lin = [row(0), row(1), row(2)];
+    // I - L = 2nnᵀ: its largest column is along n.
+    let cols: Vec<DVec3> = (0..3)
+        .map(|j| DVec3::AXES[j] - DVec3::new(lin[0][j], lin[1][j], lin[2][j]))
+        .collect();
+    let n = cols
+        .iter()
+        .max_by(|a, b| a.length_squared().total_cmp(&b.length_squared()))?
+        .normalize_or_zero();
+    if n == DVec3::ZERO {
+        return None;
+    }
+    // L must be exactly I - 2nnᵀ.
+    for i in 0..3 {
+        for j in 0..3 {
+            let want = if i == j { 1.0 } else { 0.0 } - 2.0 * n[i] * n[j];
+            if (lin[i][j] - want).abs() > 1e-12 {
+                return None;
+            }
+        }
+    }
+    let t = DVec3::new(m[0][3], m[1][3], m[2][3]);
+    let along = t.dot(n);
+    if (t - along * n).length() > 1e-9 * (1.0 + t.length()) {
+        return None;
+    }
+    Some((0.5 * along * n, n))
+}
+
 impl brep_protocol::Kernel for Anvil {
     type Solid = Solid;
 
@@ -475,20 +510,30 @@ impl brep_protocol::Kernel for Anvil {
     }
 
     fn transform(&mut self, s: &Solid, m: [[f64; 4]; 3]) -> Result<Solid, Refusal> {
-        // anvil-brep moves a solid rigidly in one call; a mirror or a scale is another call, and
-        // a motion that is both is two.
+        // anvil-brep moves a solid rigidly in one call and reflects it in a plane in another; a
+        // scale is a third, and a motion that combines them is more than one.
         let col = |j: usize| DVec3::new(m[0][j], m[1][j], m[2][j]);
         let (x, y, z) = (col(0), col(1), col(2));
-        let rigid = [(x, x), (y, y), (z, z)]
+        let orthonormal = [(x, x), (y, y), (z, z)]
             .iter()
             .all(|(a, b)| (a.dot(*b) - 1.0).abs() <= 1e-12)
             && x.dot(y).abs() <= 1e-12
             && y.dot(z).abs() <= 1e-12
-            && z.dot(x).abs() <= 1e-12
-            && x.cross(y).dot(z) > 0.0;
-        if !rigid {
+            && z.dot(x).abs() <= 1e-12;
+        if orthonormal && x.cross(y).dot(z) < 0.0 {
+            if let Some((origin, normal)) = reflection(m) {
+                return s
+                    .0
+                    .iter()
+                    .map(|b| mirror::mirrored(b, origin, normal).map_err(err))
+                    .collect::<Result<_, _>>()
+                    .map(Solid);
+            }
+        }
+        if !(orthonormal && x.cross(y).dot(z) > 0.0) {
             return Err(Refusal::unsupported(
-                "anvil-brep moves a solid rigidly in one call, and mirrors or scales it in others",
+                "anvil-brep moves a solid rigidly in one call and reflects it in a plane in another; \
+                 a scale, or a motion that combines them, is more than one",
             ));
         }
         let motion = Frame {
@@ -553,5 +598,42 @@ fn main() -> ExitCode {
             eprintln!("{e}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod reflection_tests {
+    use super::*;
+
+    #[test]
+    fn a_plain_reflection_gives_its_plane_and_nothing_else_does() {
+        // In the plane x = 3: x ↦ 6 − x.
+        let m = [
+            [-1.0, 0.0, 0.0, 6.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+        ];
+        let (o, n) = reflection(m).expect("a reflection");
+        assert!((n.abs() - DVec3::X).length() < 1e-12);
+        assert!((o.x - 3.0).abs() < 1e-12 && o.y.abs() < 1e-12 && o.z.abs() < 1e-12);
+        // In a slanted plane through (1, 2, 0), normal (1, 1, 0)/√2.
+        let n = DVec3::new(1.0, 1.0, 0.0).normalize();
+        let p = DVec3::new(1.0, 2.0, 0.0);
+        let lin = |i: usize, j: usize| if i == j { 1.0 } else { 0.0 } - 2.0 * n[i] * n[j];
+        let t = 2.0 * p.dot(n) * n;
+        let m = [0, 1, 2].map(|i| [lin(i, 0), lin(i, 1), lin(i, 2), t[i]]);
+        let (o, k) = reflection(m).expect("a reflection");
+        assert!((o - p).dot(k).abs() < 1e-12 && k.cross(n).length() < 1e-12);
+        // With a slide along the plane: no.
+        let mut slid = m;
+        slid[2][3] = 1.0;
+        assert!(reflection(slid).is_none());
+        // A turn and a mirror (z ↦ −z after a quarter turn about z): no.
+        let turned = [
+            [0.0, -1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, -1.0, 0.0],
+        ];
+        assert!(reflection(turned).is_none());
     }
 }
