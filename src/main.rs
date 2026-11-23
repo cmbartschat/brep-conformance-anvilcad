@@ -17,11 +17,6 @@ use glam::{DVec2, DVec3};
 /// The protocol's `10·ε`: how near a point must be to the edge it names.
 const NAMES: f64 = 1e-6;
 
-/// The chord of the tessellation that volume, area and centroid are measured on, as a share of
-/// the solid's diagonal, and its greatest angle per chord.
-const MEASURE_CHORD: f64 = 1e-4;
-const MEASURE_ANGLE: f64 = std::f64::consts::PI / 180.0;
-
 /// A solid set: anvil-brep's bodies, none for the empty solid. Its operations return a list of
 /// bodies, and an empty list is its way of saying that a result is empty.
 struct Solid(Vec<anvil_brep::Solid>);
@@ -262,33 +257,22 @@ fn faces_at(b: &anvil_brep::Solid, points: &[model::Vec3]) -> Result<Vec<usize>,
         .collect()
 }
 
-/// Every body's tessellation, fine enough to measure on.
-fn meshes(s: &Solid, chord: Option<f64>) -> Result<Vec<anvil_brep::tess::TriMesh>, Refusal> {
+/// Every body's tessellation at `chord`.
+fn meshes(s: &Solid, chord: f64) -> Result<Vec<anvil_brep::tess::TriMesh>, Refusal> {
+    let params = TessParams {
+        chord,
+        max_angle: tol::MAX_ANGLE,
+    };
     s.0.iter()
-        .map(|b| {
-            let params = match chord {
-                Some(chord) => TessParams {
-                    chord,
-                    max_angle: tol::MAX_ANGLE,
-                },
-                None => {
-                    let (lo, hi) = b
-                        .bounds()
-                        .ok_or_else(|| Refusal::failed("a body with no extent"))?;
-                    TessParams {
-                        chord: MEASURE_CHORD * (hi - lo).length(),
-                        max_angle: MEASURE_ANGLE,
-                    }
-                }
-            };
-            tessellate(b, &params).map_err(err)
-        })
+        .map(|b| tessellate(b, &params).map_err(err))
         .collect()
 }
 
-/// The mass properties of each body's tessellation.
+/// The mass properties of each body, integrated exactly on its own surfaces.
 fn properties(s: &Solid) -> Result<Vec<mass::MassProperties>, Refusal> {
-    Ok(meshes(s, None)?.iter().map(mass::properties).collect())
+    s.0.iter()
+        .map(|b| mass::exact_properties(b).map_err(err))
+        .collect()
 }
 
 impl Anvil {
@@ -323,7 +307,7 @@ impl brep_protocol::Kernel for Anvil {
     }
 
     fn version(&self) -> String {
-        "0.1.2".into()
+        "0.2.0".into()
     }
 
     fn tolerance(&self) -> f64 {
@@ -331,9 +315,8 @@ impl brep_protocol::Kernel for Anvil {
     }
 
     fn configuration(&self) -> String {
-        "no kernel setting changed; volume, area and centroid are anvil-brep's mass properties of \
-         its own tessellation, at a chord of 1e-4 of each body's diagonal and 1° per chord, since \
-         it has no exact integration"
+        "no kernel setting changed; volume, area and centroid are anvil-brep's exact mass \
+         properties, integrated on each body's own surfaces (mass::exact_properties)"
             .into()
     }
 
@@ -524,7 +507,7 @@ impl brep_protocol::Kernel for Anvil {
     fn mesh(&mut self, s: &Solid, tolerance: f64) -> Result<Mesh, Refusal> {
         let mut positions = Vec::new();
         let mut triangles = Vec::new();
-        for m in meshes(s, Some(tolerance))? {
+        for m in meshes(s, tolerance)? {
             let base = positions.len() as u32;
             positions.extend(m.positions.iter().map(|&p| arr(p)));
             triangles.extend(m.triangles.iter().map(|t| t.map(|i| i + base)));

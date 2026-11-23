@@ -15,8 +15,7 @@ requests with the kernel's own calls. Gustav Näslund wrote this adapter and mai
 - **It adds nothing to the kernel.** The adapter is pass-through, as the suite's
   [contract](https://github.com/springcraft-ai/brep-conformance/blob/main/doc/contract.md#what-an-adapter-may-do)
   asks: one call of the kernel for each function, and anything the kernel has no one call for is
-  listed as unsupported. What is scored is anvil-brep, not this code. The one exception, how it
-  measures, is set out below.
+  listed as unsupported. What is scored is anvil-brep, not this code.
 - **AnvilCAD's maintainers are welcome here.** They know best how to drive anvil-brep, so their
   review and corrections carry the most weight. Ask in an issue to be added as a reviewer.
 - **The suite decides what is scored.** An official run uses only a commit of this adapter that the
@@ -24,23 +23,14 @@ requests with the kernel's own calls. Gustav Näslund wrote this adapter and mai
 
 ## Measuring
 
-anvil-brep has no exact integration of volume, area or moments. Its mass properties
-(`anvil_brep::mass::properties`) are those of a closed triangle mesh, and AnvilCAD measures a solid
-by tessellating it (`anvil_brep::tess::tessellate`) and taking the mass properties of the mesh. The
-adapter measures the same way. It tessellates each body at a chord of 1e-4 of its diagonal and 1°
-per chord, and takes the volume, area and centroid of that mesh. The `configuration` in `hello`
-says so.
+Volume, area and centroid are anvil-brep's exact mass properties,
+`anvil_brep::mass::exact_properties` (since 0.2.0): integrated on each body's own trimmed
+surfaces, with no mesh, to about 1e-9 of the body's size. The adapter sums them over the bodies.
+The `configuration` in `hello` says so. Inertia is not measured yet, and is listed as unsupported.
 
-The suite's own scope is kernels that measure exactly, at 1e-7 mm. A measure taken from a mesh is
-off by roughly the chord's square over the radius on every curved face: about 5e-5 of the area at 1°
-per chord. The suite's volume bound loosens with each tier, but its area bound is a relative 1e-6 at
-every tier. So every solid with a curved face fails its area check at every tier, even where the
-geometry is right. Of the suite 2.0.0 run on anvil-brep at the pinned commit, 415 of 3617 cases pass
-at 1e-7 and 1418 fail. The checks that do not measure, such as the checker (B1), the classifier
-against the suite's sample (B9, B15) and the refusals (B18), are read as they stand: 178 cases fail
-one of those, and the other 1240 fail on a measure alone. This is the one place the adapter is not
-one call per function. It is the open question in the issue that proposes this adapter for the
-registry. Should anvil-brep gain an exact measure, the adapter will call it.
+Of the suite 2.0.0 run on anvil-brep at the pinned commit, 1346 of 3617 cases pass at 1e-7, 256
+fail, 299 are refused, 1715 are unsupported and one times out. Before exact measuring, measuring a
+mesh, 415 passed and 1418 failed, nearly all on area alone.
 
 ## Overview
 
@@ -72,7 +62,7 @@ rest as unsupported:
   `tess::tessellate` at the asked chord. STEP is `anvil_step::export::write`, AnvilCAD's AP214
   writer.
 
-Listed as unsupported, since anvil-brep 0.1.2 has no one call of the protocol's shape for it:
+Listed as unsupported, since anvil-brep 0.2.0 has no one call of the protocol's shape for it:
 
 - The five primitives (the suite sends their stand-ins), screws, lofts through several sections,
   sweeps along a spline, and slabs.
@@ -94,8 +84,8 @@ The adapter declares it and changes nothing.
 ## Setup
 
 The Rust toolchain [`rust-toolchain.toml`](rust-toolchain.toml) pins. Building fetches anvil-brep
-and anvil-step from AnvilCAD's repository at the commit [`Cargo.toml`](Cargo.toml) pins, after
-release 0.1.2.
+and anvil-step from AnvilCAD's repository at the commit [`Cargo.toml`](Cargo.toml) pins, that
+of release 0.2.0.
 
 ## Usage
 
